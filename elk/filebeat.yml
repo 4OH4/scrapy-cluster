@@ -1,0 +1,29 @@
+filebeat.inputs:
+  - type: log
+    paths:
+      - /usr/share/filebeat/logs/scrapy-cluster/*.log
+    json.keys_under_root: true
+    json.add_error_key: true
+    json.overwrite_keys: false
+    # rename url field to avoid name conflict in Elasticsearch
+    # - otherwise page crawled messages from crawler not collated
+    processors:
+      - rename:
+          fields:
+            - from: "url"
+              to: "page_url"
+          ignore_missing: true
+          fail_on_error: false
+
+setup.kibana:
+  host: http://kibana:5601
+  # username: elastic
+  # password: youpassword
+
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+  # username: elastic
+  # password: youpassword
+  # index: "filebeat-%{[beat.version]}-%{+yyyy.MM.dd}"
+  template.name: filebeat
+  template.path: filebeat.template.json

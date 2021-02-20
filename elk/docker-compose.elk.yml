@@ -1,4 +1,4 @@
-version: '2'
+version: '3.5'
 # This compose file stands up Scrapy Cluster with an
 # associated ELK Stack. You should run a few crawls and then import the
 # `export.json` file into your Kibana objects
@@ -76,32 +76,50 @@ services:
     depends_on:
       - zookeeper
     restart: always
+
   elasticsearch:
-    image: elasticsearch:5.2
-    command: elasticsearch -E network.host=0.0.0.0 -E discovery.zen.minimum_master_nodes=1
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.2
+    volumes:
+      - type: bind
+        source: ./elasticsearch.yml
+        target: /usr/share/elasticsearch/config/elasticsearch.yml
+        read_only: true
+      # - type: volume
+      #   source: elasticsearch
+      #   target: /usr/share/elasticsearch/data
     ports:
       - "9200:9200"
       - "9300:9300"
+    environment:
+      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+      discovery.type: single-node
+      #bootstrap.memory_lock: true
     restart: always
-  logstash:
-    image: logstash:5.2
-    command: logstash -f /etc/logstash/conf.d/logstash.conf
-    volumes:
-      - ./scrapy-cluster-logstash-docker.conf:/etc/logstash/conf.d/logstash.conf
-      - ./logs-template.json:/etc/logstash/templates/logs-template.json
-      - logs:/var/log/scrapy-cluster
-    ports:
-      - "5000:5000"
-    links:
-      - elasticsearch
-    restart: always
+
   kibana:
-    image: kibana:5.2
+    image: docker.elastic.co/kibana/kibana-oss:7.10.2
+    volumes:
+      - type: bind
+        source: ./kibana.yml
+        target: /usr/share/kibana/config/kibana.yml
+        read_only: true
     ports:
       - "5601:5601"
-    links:
+    depends_on:
       - elasticsearch
+    restart: always
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat-oss:7.10.2
+    command: filebeat -e -strict.perms=false
+    volumes:
+      - logs:/usr/share/filebeat/logs/scrapy-cluster
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+    depends_on:
+      - elasticsearch
+      - kibana
     restart: always
 
 volumes:
   logs:
+  # elasticsearch:
